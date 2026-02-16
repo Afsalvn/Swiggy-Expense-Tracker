@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "Swiggy Food Expense Tracker",
+  "version": "1.0",
+  "description": "Track your lifetime spending on Swiggy with beautiful charts and analytics.",
+  "permissions": [
+    "storage",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://www.swiggy.com/*"
+  ],
+  "icons": {
+    "16": "images/logo.svg",
+    "48": "images/logo.svg",
+    "128": "images/logo.svg"
+  },
+  "action": {
+    "default_title": "Swiggy Expense Tracker",
+    "default_popup": "popup.html",
+    "default_icon": "images/logo.svg"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.swiggy.com/*"
+      ],
+      "js": [
+        "scripts/content.js"
+      ]
+    }
+  ]
+}

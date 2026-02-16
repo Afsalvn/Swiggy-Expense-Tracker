@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swiggy Expense Tracker</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <script src="scripts/chart.min.js"></script>
+</head>
+
+<body>
+    <div class="header">
+        <div class="logo" style="display: flex; align-items: center;">
+            <img src="images/logo.svg" alt="Logo" style="width: 40px; height: 40px; margin-right: 15px;">
+            Swiggy Expense Tracker
+        </div>
+        <div class="actions">
+            <div class="filter-group" style="display: inline-flex; gap: 10px; margin-right: 20px; align-items: center;">
+                <input type="date" id="startDate" style="padding: 8px; border: 1px solid #d4d5d9; border-radius: 4px;">
+                <span style="color: #686b78;">to</span>
+                <input type="date" id="endDate" style="padding: 8px; border: 1px solid #d4d5d9; border-radius: 4px;">
+                <button id="filterAllTime"
+                    style="background:#fff; border:1px solid #d4d5d9; padding: 8px 10px; cursor: pointer; border-radius: 4px;">All
+                    Time</button>
+                <div style="width: 1px; height: 20px; background: #d4d5d9; margin: 0 5px;"></div>
+                <button id="filter30Days"
+                    style="background:#fff; border:1px solid #d4d5d9; padding: 8px 10px; cursor: pointer; border-radius: 4px;">30
+                    Days</button>
+                <button id="filter3Months"
+                    style="background:#fff; border:1px solid #d4d5d9; padding: 8px 10px; cursor: pointer; border-radius: 4px;">3
+                    Months</button>
+            </div>
+            <button id="refreshData" class="btn-primary">Sync Data</button>
+            <span id="lastSynced" class="subtext">Not synced yet</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Summary Cards -->
+        <div class="stats-grid">
+            <div class="card">
+                <h3>Total Spent</h3>
+                <div class="value" id="totalSpent">₹0</div>
+            </div>
+            <div class="card">
+                <h3>Total Orders</h3>
+                <div class="value" id="totalOrders">0</div>
+            </div>
+            <div class="card">
+                <h3>Avg. Order Value</h3>
+                <div class="value" id="avgOrderValue">₹0</div>
+            </div>
+            <div class="card">
+                <h3>Most Expensive Order</h3>
+                <div class="value" id="maxOrderValue">₹0</div>
+            </div>
+        </div>
+
+        <!-- Charts Area -->
+        <div class="charts-grid">
+            <div class="card chart-card">
+                <h3>Monthly Spending Trend</h3>
+                <canvas id="monthlyTrendChart"></canvas>
+            </div>
+            <div class="card chart-card">
+                <h3>Top Restaurants</h3>
+                <canvas id="topRestaurantsChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Recent Orders Table -->
+        <div class="card">
+            <h3>Recent Orders</h3>
+            <table id="ordersTable">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Restaurant</th>
+                        <th>Items</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- populated by js -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="scripts/dashboard.js"></script>
+</body>
+
+</html>
