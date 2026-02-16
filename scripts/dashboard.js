@@ -1,3 +1,6 @@
+let currentOrders = [];
+let filteredOrders = [];
+
 document.addEventListener('DOMContentLoaded', async () => {
     const refreshBtn = document.getElementById('refreshData');
 
@@ -6,8 +9,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const filterAllTimeBtn = document.getElementById('filterAllTime');
     const startDateInput = document.getElementById('startDate');
     const endDateInput = document.getElementById('endDate');
-
-    let currentOrders = [];
+    const searchInput = document.getElementById('searchOrders');
+    const exportBtn = document.getElementById('exportCsv');
 
     // Helper to trigger sync automatically after setting dates? 
     // User said "select date and click sync data". So we just set dates.
@@ -22,6 +25,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         // "click sync data" implies manual action. The buttons act as presets.
         // But previously shortcuts clicked applyFilter.
         // Let's just set the dates.
+    });
+
+    // Search Listener
+    searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        filterOrders(searchTerm);
+    });
+
+    // Export Listener
+    // Export Listener
+    exportBtn.addEventListener('click', () => {
+        // Always export the current filtered view. 
+        // If search is empty, filteredOrders == currentOrders.
+        // If search has 0 results, filteredOrders == []. 
+        // In that case, we should probably warn or export empty file? User likely wants what they see.
+        // But the previous issue was it exported "No data" because variables were out of scope.
+        exportToCSV(filteredOrders);
     });
 
     document.getElementById('filter30Days').addEventListener('click', () => {
@@ -86,7 +106,7 @@ async function loadData() {
     const data = await chrome.storage.local.get(['swiggy_orders', 'last_synced']);
     const orders = data.swiggy_orders || [];
     currentOrders = orders;
-    currentOrders = orders; // Store for filtering
+    filteredOrders = orders; // Initialize
 
     if (data.last_synced) {
         const date = new Date(data.last_synced);
@@ -98,10 +118,77 @@ async function loadData() {
     processAndRender(orders);
 }
 
+function filterOrders(searchTerm) {
+    if (!searchTerm) {
+        filteredOrders = currentOrders;
+    } else {
+        filteredOrders = currentOrders.filter(order => {
+            const restName = (order.restaurant_name || (order.restaurant ? order.restaurant.name : 'Unknown')).toLowerCase();
+            // Swiggy data structure for items varies, sometimes it's items names in a list
+            // Check if items strings are present
+            let itemsMatch = false;
+            if (order.items && Array.isArray(order.items)) {
+                itemsMatch = order.items.some(item =>
+                    (typeof item === 'string' && item.toLowerCase().includes(searchTerm)) ||
+                    (item.name && item.name.toLowerCase().includes(searchTerm))
+                );
+            }
+            return restName.includes(searchTerm) || itemsMatch;
+        });
+    }
+    renderTable(filteredOrders.slice(0, 10)); // Re-render table only? Or whole dashboard?
+    // Usually search is just for finding orders, but let's re-render table to start.
+    // If we want charts to update with search, we call processAndRender.
+    // Let's just update the table for search to avoid lag on generic typing
+    renderTable(filteredOrders);
+}
+
+function exportToCSV(orders) {
+    if (!orders || !orders.length) {
+        alert("No data to export");
+        return;
+    }
+
+    // Define headers
+    const headers = ['Order ID', 'Date', 'Restaurant', 'Items', 'Amount', 'Status'];
+
+    // Convert orders to CSV rows
+    const rows = orders.map(order => {
+        const orderId = order.order_id;
+        const date = new Date(order.order_time || order.order_date).toLocaleString();
+        const restName = order.restaurant_name || (order.restaurant ? order.restaurant.name : 'Unknown');
+        const amount = order.net_total || order.order_total || 0;
+        const status = order.order_status || "Delivered";
+
+        // Handle items list - escape commas
+        let itemsStr = "";
+        if (order.items && Array.isArray(order.items)) {
+            itemsStr = order.items.map(i => typeof i === 'string' ? i : i.name).join("; ");
+        }
+
+        // Escape quotes in fields
+        const escape = (val) => `"${String(val).replace(/"/g, '""')}"`;
+
+        return [escape(orderId), escape(date), escape(restName), escape(itemsStr), escape(amount), escape(status)].join(",");
+    });
+
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `swiggy_orders_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
 function processAndRender(orders) {
     let totalSpent = 0;
     let restaurantCounts = {};
     let monthlySpend = {};
+    let spendingByDay = {}; // Mon, Tue...
+    let spendingByHour = {}; // 0-23
     let maxOrder = { net_total: 0 };
 
     orders.forEach(order => {
@@ -129,6 +216,16 @@ function processAndRender(orders) {
 
         // Monthly Spend
         monthlySpend[monthKey] = (monthlySpend[monthKey] || 0) + amount;
+
+        // Day of Week & Hour Analysis
+        const day = reqDate.toLocaleDateString('en-US', { weekday: 'long' }); // Monday, Tuesday...
+        const hour = reqDate.getHours(); // 0-23
+
+        if (!spendingByDay[day]) spendingByDay[day] = 0;
+        spendingByDay[day] += amount;
+
+        if (!spendingByHour[hour]) spendingByHour[hour] = 0;
+        spendingByHour[hour] += amount;
     });
 
     // Update Cards
@@ -140,14 +237,66 @@ function processAndRender(orders) {
     // Render Charts
     renderMonthlyChart(monthlySpend);
     renderTopRestaurants(restaurantCounts);
+    renderHabitCharts(spendingByDay, spendingByHour);
 
     // Render Table
-    renderTable(orders.slice(0, 10)); // Top 10 recent
+    renderTable(orders.slice(0, 50)); // Limit initial render for performance
 }
 
-// Global chart instances
 let monthlyChart = null;
 let topRestaurantsChart = null;
+let dayOfWeekChart = null;
+let timeOfDayChart = null;
+
+function renderHabitCharts(dayData, hourData) {
+    const dayCtx = document.getElementById('dayOfWeekChart').getContext('2d');
+    const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const dayValues = daysOrder.map(d => dayData[d] || 0);
+
+    if (dayOfWeekChart) dayOfWeekChart.destroy();
+
+    dayOfWeekChart = new Chart(dayCtx, {
+        type: 'bar',
+        data: {
+            labels: daysOrder,
+            datasets: [{
+                label: 'Total Spend (₹)',
+                data: dayValues,
+                backgroundColor: '#fc8019',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    const timeCtx = document.getElementById('timeOfDayChart').getContext('2d');
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+    const hourValues = hours.map(h => hourData[h] || 0);
+
+    if (timeOfDayChart) timeOfDayChart.destroy();
+
+    timeOfDayChart = new Chart(timeCtx, {
+        type: 'bar',
+        data: {
+            labels: hours.map(h => `${h}:00`),
+            datasets: [{
+                label: 'Total Spend (₹)',
+                data: hourValues,
+                backgroundColor: '#60b246',
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+}
 
 function renderMonthlyChart(data) {
     const ctx = document.getElementById('monthlyTrendChart').getContext('2d');

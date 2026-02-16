@@ -31,6 +31,9 @@
                     style="background:#fff; border:1px solid #d4d5d9; padding: 8px 10px; cursor: pointer; border-radius: 4px;">3
                     Months</button>
             </div>
+            <button id="exportCsv" class="btn-secondary"
+                style="margin-right: 10px; background: #fff; color: #fc8019; border: 1px solid #fc8019;">Export
+                CSV</button>
             <button id="refreshData" class="btn-primary">Sync Data</button>
             <span id="lastSynced" class="subtext">Not synced yet</span>
         </div>
@@ -57,6 +60,18 @@
             </div>
         </div>
 
+        <!-- Spending Habits Charts -->
+        <div class="charts-grid" style="margin-bottom: 20px;">
+            <div class="card chart-card">
+                <h3>Spending by Day of Week</h3>
+                <canvas id="dayOfWeekChart"></canvas>
+            </div>
+            <div class="card chart-card">
+                <h3>Spending by Time of Day</h3>
+                <canvas id="timeOfDayChart"></canvas>
+            </div>
+        </div>
+
         <!-- Charts Area -->
         <div class="charts-grid">
             <div class="card chart-card">
@@ -71,7 +86,11 @@
 
         <!-- Recent Orders Table -->
         <div class="card">
-            <h3>Recent Orders</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin: 0;">Recent Orders</h3>
+                <input type="text" id="searchOrders" placeholder="Search orders..."
+                    style="padding: 8px; border: 1px solid #d4d5d9; border-radius: 4px; width: 250px;">
+            </div>
             <table id="ordersTable">
                 <thead>
                     <tr>
